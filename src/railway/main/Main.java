@@ -1,4 +1,4 @@
-package Railway;
+package railway.main;
 
 public class Main {
 
