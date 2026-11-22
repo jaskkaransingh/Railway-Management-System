@@ -118,5 +118,8 @@ CREATE TABLE payments (
         REFERENCES bookings(booking_id)
 );
 
+ALTER TABLE users
+RENAME COLUMN password TO password_hash;
+
 
 
