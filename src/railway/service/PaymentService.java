@@ -7,23 +7,28 @@ import railway.dao.SeatDao;
 import railway.database.DBConnection;
 import railway.model.Booking;
 import railway.model.Payment;
+import railway.messaging.BookingMessageProducer;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import railway.payment.PaymentMethod;
 
 public class PaymentService {
 
     private PaymentDao paymentDao;
     private BookingDao bookingDao;
     private SeatDao seatDao;
+    private BookingMessageProducer messageProducer;
 
     public PaymentService() {
+
         paymentDao = new PaymentDao();
         bookingDao = new BookingDao();
         seatDao = new SeatDao();
+        messageProducer = new BookingMessageProducer();
     }
 
-    public Payment processPayment(String pnr, boolean paymentSuccess) {
+    public Payment processPayment(String pnr, PaymentMethod paymentMethod) {
 
         Booking booking = bookingDao.getBookingByPNR(pnr);
 
@@ -33,7 +38,9 @@ public class PaymentService {
         }
 
         if (!booking.getBookingStatus().equals("PENDING")) {
-            System.out.println("Payment can only be processed for pending bookings!");
+            System.out.println(
+                "Payment can only be processed for pending bookings!"
+            );
             return null;
         }
 
@@ -41,13 +48,20 @@ public class PaymentService {
             System.out.println("Payment has already been completed!");
             return null;
         }
+        if (paymentMethod == null) {
+            System.out.println("Invalid payment method!");
+            return null;
+        }
+
+        boolean paymentSuccess =
+                paymentMethod.pay(booking.getTotalAmount());
 
         String status = paymentSuccess ? "SUCCESS" : "FAILED";
 
         Payment payment = new Payment(
-                booking.getBookingId(),
-                booking.getTotalAmount(),
-                status
+            booking.getBookingId(),
+            booking.getTotalAmount(),
+            status
         );
 
         int paymentId = paymentDao.addPayment(payment);
@@ -60,16 +74,19 @@ public class PaymentService {
         Connection con = null;
 
         try {
+
             con = DBConnection.getConnection();
             con.setAutoCommit(false);
 
             if (paymentSuccess) {
 
                 boolean confirmed =
-                        bookingDao.confirmBooking(con, pnr);
+                    bookingDao.confirmBooking(con, pnr);
 
                 if (!confirmed) {
-                    throw new SQLException("Booking confirmation failed!");
+                    throw new SQLException(
+                        "Booking confirmation failed!"
+                    );
                 }
 
                 con.commit();
@@ -78,17 +95,22 @@ public class PaymentService {
                 System.out.println("Booking confirmed!");
                 System.out.println("Payment Status: SUCCESS");
 
+                // Send JMS notification after successful commit
+                messageProducer.sendBookingConfirmation(pnr);
+
             } else {
 
                 boolean cancelled =
-                        bookingDao.cancelBooking(con, pnr);
+                    bookingDao.cancelBooking(con, pnr);
 
                 if (!cancelled) {
-                    throw new SQLException("Booking cancellation failed!");
+                    throw new SQLException(
+                        "Booking cancellation failed!"
+                    );
                 }
 
                 boolean released =
-                        seatDao.releaseSeats(con, pnr);
+                    seatDao.releaseSeats(con, pnr);
 
                 if (!released) {
                     throw new SQLException("Seat release failed!");
@@ -101,10 +123,12 @@ public class PaymentService {
                 System.out.println("Reserved seats released.");
             }
 
-            System.out.println("Amount: ₹" + booking.getTotalAmount());
+            System.out.println(
+                "Amount: ₹" + booking.getTotalAmount()
+            );
 
             return paymentDao.getPaymentByBookingId(
-                    booking.getBookingId()
+                booking.getBookingId()
             );
 
         } catch (SQLException e) {
@@ -119,6 +143,7 @@ public class PaymentService {
 
             System.out.println("Payment processing failed!");
             e.printStackTrace();
+
             return null;
 
         } finally {

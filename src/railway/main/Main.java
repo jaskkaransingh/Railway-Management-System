@@ -26,6 +26,12 @@ import railway.dao.BookingDao;
 import railway.model.Booking;
 import railway.dao.UserDao;
 import railway.filehandling.TicketPdfHandler;
+import railway.payment.PaymentMethod;
+import railway.payment.PaymentMethodFactory;
+
+import railway.strategy.FareStrategy;
+import railway.strategy.AcFareStrategy;
+import railway.strategy.SleeperFareStrategy;
 
 public class Main {
 
@@ -688,29 +694,33 @@ public class Main {
 
                                     } else {
 
-                                        double totalAmount = 0;
 
-                                        for (int seatId : seatIds) {
+											double totalAmount = 0;
+											
+											for (int seatId : seatIds) {
+											
+											    for (Seat seat : availableSeats) {
+											
+											        if (seat.getSeatId() == seatId) {
+											
+											            FareStrategy fareStrategy = null;
+											
+											            if (seat.getSeatClass().equalsIgnoreCase("AC")) {
+											                fareStrategy = new AcFareStrategy();
+											
+											            } else if (seat.getSeatClass().equalsIgnoreCase("SLEEPER")) {
+											                fareStrategy = new SleeperFareStrategy();
+											            }
+											
+											            if (fareStrategy != null) {
+											                totalAmount += fareStrategy.calculateFare(1);
+											            }
+											
+											            break;
+											        }
+											    }
+											}
 
-                                            for (Seat seat : availableSeats) {
-
-                                                if (seat.getSeatId() == seatId) {
-
-                                                    if (seat.getSeatClass()
-                                                            .equalsIgnoreCase("AC")) {
-
-                                                        totalAmount += 1500;
-
-                                                    } else if (seat.getSeatClass()
-                                                            .equalsIgnoreCase("SLEEPER")) {
-
-                                                        totalAmount += 1000;
-                                                    }
-
-                                                    break;
-                                                }
-                                            }
-                                        }
 
                                         System.out.println("\n===== FARE DETAILS =====");
 
@@ -847,99 +857,109 @@ public class Main {
 
                     break;
                 }
-                case 8: {
+                
 
-                    System.out.println("\n===== MAKE PAYMENT =====");
+				case 8: {
+				
+				    System.out.println("\n===== MAKE PAYMENT =====");
+				
+				    if (currentUser == null) {
+				
+				        System.out.println("Please login first!");
+				
+				    } else {
+				
+				        System.out.print("Enter PNR: ");
+				        String paymentPnr = sc.nextLine();
+				
+				        Ticket ticket = bookingService.getTicketByPNR(paymentPnr);
+				
+				        if (ticket == null) {
+				
+				            System.out.println("Booking not found!");
+				
+				        } else if (ticket.getBooking().getUserId()
+				                != currentUser.getUserId()) {
+				
+				            System.out.println(
+				                "Access denied! This booking does not belong to you."
+				            );
+				
+				        } else {
+				
+				            System.out.println("\nSelect Payment Method:");
+				            System.out.println("1. UPI");
+				            System.out.println("2. Debit/Credit Card");
+				            System.out.println("3. Net Banking");
+				            System.out.print("Enter choice: ");
+				
+				            int paymentChoice = sc.nextInt();
+				            sc.nextLine();
+				
+				            PaymentMethod paymentMethod;
+				
+				            try {
+				
+				                paymentMethod =
+				                    PaymentMethodFactory.getPaymentMethod(paymentChoice);
+				
+				            } catch (IllegalArgumentException e) {
+				
+				                System.out.println("Invalid payment method!");
+				                break;
+				            }
+				
+				            Payment payment = paymentService.processPayment(
+				                paymentPnr,
+				                paymentMethod
+				            );
+				
+				            if (payment != null) {
+				
+				                System.out.println("\n===== PAYMENT RECEIPT =====");
+				                System.out.println(payment);
+				
+				                // Generate PDF only after successful payment
+				                if (payment.getPaymentStatus().equals("SUCCESS")) {
+				
+				                    TrainSchedule schedule =
+				                        trainScheduleDao.getTrainScheduleById(
+				                            ticket.getBooking().getScheduleId()
+				                        );
+				
+				                    if (schedule != null) {
+				
+				                        Ticket confirmedTicket =
+				                            bookingService.getTicketByPNR(paymentPnr);
+				
+				                        String pdfPath =
+				                            ticketPdfHandler.generateTicketPDF(
+				                                confirmedTicket,
+				                                schedule
+				                            );
+				
+				                        if (pdfPath != null) {
+				
+				                            System.out.println(
+				                                "Your PDF ticket is ready: " + pdfPath
+				                            );
+				                        }
+				
+				                    } else {
+				
+				                        System.out.println(
+				                            "Could not retrieve train schedule for PDF."
+				                        );
+				                    }
+				                }
+				            }
+				        }
+				    }
+				
+				    break;
+				}
 
-                    if (currentUser == null) {
 
-                        System.out.println("Please login first!");
-
-                    } else {
-
-                        System.out.print("Enter PNR: ");
-                        String paymentPnr = sc.nextLine();
-
-                        Ticket ticket = bookingService.getTicketByPNR(paymentPnr);
-
-                        if (ticket == null) {
-
-                            System.out.println("Booking not found!");
-
-                        } else if (ticket.getBooking().getUserId()
-                                != currentUser.getUserId()) {
-
-                            System.out.println(
-                                    "Access denied! This booking does not belong to you.");
-
-                        } else {
-
-                            System.out.println("\nSelect Payment Result:");
-                            System.out.println("1. Successful Payment");
-                            System.out.println("2. Failed Payment");
-                            System.out.print("Enter choice: ");
-
-                            int paymentChoice = sc.nextInt();
-                            sc.nextLine();
-
-                            boolean paymentSuccess;
-
-                            if (paymentChoice == 1) {
-                                paymentSuccess = true;
-                            } else if (paymentChoice == 2) {
-                                paymentSuccess = false;
-                            } else {
-                                System.out.println("Invalid payment choice!");
-                                break;
-                            }
-
-                            Payment payment = paymentService.processPayment(
-                                    paymentPnr,
-                                    paymentSuccess
-                            );
-
-                            if (payment != null) {
-
-                                System.out.println("\n===== PAYMENT RECEIPT =====");
-                                System.out.println(payment);
-
-                                // Generate PDF only after successful payment
-                                if (payment.getPaymentStatus().equals("SUCCESS")) {
-
-                                    TrainSchedule schedule =
-                                            trainScheduleDao.getTrainScheduleById(
-                                                    ticket.getBooking().getScheduleId()
-                                            );
-
-                                    if (schedule != null) {
-
-                                    	Ticket confirmedTicket =
-                                    	        bookingService.getTicketByPNR(paymentPnr);
-
-                                    	String pdfPath =
-                                    	        ticketPdfHandler.generateTicketPDF(
-                                    	                confirmedTicket,
-                                    	                schedule
-                                    	        );
-
-                                        if (pdfPath != null) {
-                                            System.out.println(
-                                                    "Your PDF ticket is ready: " + pdfPath
-                                            );
-                                        }
-
-                                    } else {
-                                        System.out.println(
-                                                "Could not retrieve train schedule for PDF."
-                                        );
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    break;
-                }
 
                 case 9:
 
