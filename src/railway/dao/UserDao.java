@@ -7,6 +7,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
 
 public class UserDao {
 
@@ -80,5 +81,40 @@ public class UserDao {
                 return rs.next();
             }
         }
+    }
+    public ArrayList<User> getAllUsers() {
+
+        ArrayList<User> users = new ArrayList<>();
+
+        String query = """
+                SELECT user_id, name, email, role
+                FROM users
+                ORDER BY user_id
+                """;
+
+        try (
+            Connection con = DBConnection.getConnection();
+            PreparedStatement ps = con.prepareStatement(query);
+            ResultSet rs = ps.executeQuery()
+        ) {
+
+            while (rs.next()) {
+
+                User user = new User(
+                        rs.getInt("user_id"),
+                        rs.getString("name"),
+                        rs.getString("email"),
+                        null,
+                        rs.getString("role")
+                );
+
+                users.add(user);
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return users;
     }
 }

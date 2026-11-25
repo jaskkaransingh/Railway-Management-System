@@ -89,8 +89,9 @@ public class TrainScheduleDao {
                     s.departure_time,
                     s.arrival_time
                 FROM trains t
-                JOIN schedules s
-                ON t.train_id = s.train_id
+				JOIN schedules s
+				ON t.train_id = s.train_id
+				ORDER BY s.schedule_id ASC
                 """;
 
         try (
@@ -121,5 +122,56 @@ public class TrainScheduleDao {
         }
 
         return trainSchedules;
+    }
+    
+    public TrainSchedule getTrainScheduleById(int scheduleId) {
+
+        String query = """
+                SELECT
+                    s.schedule_id,
+                    t.train_id,
+                    t.train_number,
+                    t.train_name,
+                    t.source,
+                    t.destination,
+                    s.journey_date,
+                    s.departure_time,
+                    s.arrival_time
+                FROM trains t
+                JOIN schedules s
+                ON t.train_id = s.train_id
+                WHERE s.schedule_id = ?
+                """;
+
+        try (
+            Connection con = DBConnection.getConnection();
+            PreparedStatement ps = con.prepareStatement(query)
+        ) {
+
+            ps.setInt(1, scheduleId);
+
+            try (ResultSet rs = ps.executeQuery()) {
+
+                if (rs.next()) {
+
+                    return new TrainSchedule(
+                        rs.getInt("schedule_id"),
+                        rs.getInt("train_id"),
+                        rs.getString("train_number"),
+                        rs.getString("train_name"),
+                        rs.getString("source"),
+                        rs.getString("destination"),
+                        rs.getDate("journey_date").toLocalDate(),
+                        rs.getTime("departure_time").toLocalTime(),
+                        rs.getTime("arrival_time").toLocalTime()
+                    );
+                }
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return null;
     }
 }

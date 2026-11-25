@@ -89,13 +89,7 @@ public class BookingService {
     	    String pnr = generatePNR();
 
     	    // Step 10: Create Booking object
-    	    Booking booking = new Booking(
-    	            userId,
-    	            scheduleId,
-    	            pnr,
-    	            "CONFIRMED",
-    	            totalAmount
-    	    );
+    	    Booking booking = new Booking(userId, scheduleId, pnr, "PENDING", totalAmount);
 
     	    // Step 11: Insert booking into database
     	    int bookingId = bookingDao.addBooking(con, booking);

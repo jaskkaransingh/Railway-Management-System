@@ -7,6 +7,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Statement;
+import java.util.ArrayList;
 import java.sql.SQLException;
 
 public class BookingDao {
@@ -173,5 +174,65 @@ public class BookingDao {
         return false;
     }
     
+    public boolean confirmBooking(Connection con, String pnr) {
+
+        String query = """
+                UPDATE bookings
+                SET booking_status = 'CONFIRMED'
+                WHERE pnr = ?
+                AND booking_status = 'PENDING'
+                """;
+
+        try (PreparedStatement ps = con.prepareStatement(query)) {
+
+            ps.setString(1, pnr);
+
+            int rowsUpdated = ps.executeUpdate();
+
+            return rowsUpdated > 0;
+
+        } catch (SQLException e) {
+
+            e.printStackTrace();
+            return false;
+        }
+    }
+    public ArrayList<Booking> getAllBookings() {
+
+        ArrayList<Booking> bookings = new ArrayList<>();
+
+        String query = """
+                SELECT *
+                FROM bookings
+                ORDER BY booking_date DESC
+                """;
+
+        try (
+            Connection con = DBConnection.getConnection();
+            PreparedStatement ps = con.prepareStatement(query);
+            ResultSet rs = ps.executeQuery()
+        ) {
+
+            while (rs.next()) {
+
+                Booking booking = new Booking(
+                        rs.getInt("booking_id"),
+                        rs.getInt("user_id"),
+                        rs.getInt("schedule_id"),
+                        rs.getString("pnr"),
+                        rs.getString("booking_status"),
+                        rs.getTimestamp("booking_date").toLocalDateTime(),
+                        rs.getDouble("total_amount")
+                );
+
+                bookings.add(booking);
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return bookings;
+    }
     
 }

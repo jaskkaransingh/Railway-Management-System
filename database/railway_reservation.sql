@@ -121,5 +121,35 @@ CREATE TABLE payments (
 ALTER TABLE users
 RENAME COLUMN password TO password_hash;
 
+ALTER TABLE booking_passengers
+DROP FOREIGN KEY booking_passengers_ibfk_3;
 
+ALTER TABLE booking_passengers
+DROP INDEX seat_id;
+
+ALTER TABLE booking_passengers
+ADD CONSTRAINT booking_passengers_ibfk_3
+FOREIGN KEY (seat_id)
+REFERENCES seats(seat_id);
+
+ALTER TABLE bookings
+MODIFY booking_status ENUM(
+    'PENDING',
+    'CONFIRMED',
+    'RAC',
+    'WAITLIST',
+    'CANCELLED'
+) DEFAULT 'PENDING';
+
+UPDATE users
+SET role = 'ADMIN'
+WHERE user_id = 3;
+SELECT *
+FROM seats
+WHERE schedule_id = (
+    SELECT schedule_id
+    FROM schedules
+    WHERE train_id = 1
+    AND journey_date = '2026-11-22'
+);
 

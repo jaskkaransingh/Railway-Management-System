@@ -75,4 +75,38 @@ public class ScheduleDao {
 
         return null;
     }
+    public boolean addSchedule(Schedule schedule) {
+
+        String query = """
+                INSERT INTO schedules
+                (train_id, journey_date, departure_time, arrival_time)
+                VALUES (?, ?, ?, ?)
+                """;
+
+        try (
+            Connection con = DBConnection.getConnection();
+            PreparedStatement ps = con.prepareStatement(query);
+        ) {
+
+            ps.setInt(1, schedule.getTrainId());
+
+            ps.setDate(2, java.sql.Date.valueOf(
+                    schedule.getJourneyDate()));
+
+            ps.setTime(3, java.sql.Time.valueOf(
+                    schedule.getDepartureTime()));
+            
+            ps.setTime(4, java.sql.Time.valueOf(
+                    schedule.getArrivalTime()));
+
+            int rowsInserted = ps.executeUpdate();
+
+            return rowsInserted > 0;
+
+        } catch (Exception e) {
+
+            e.printStackTrace();
+            return false;
+        }
+    }
 }

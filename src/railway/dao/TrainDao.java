@@ -39,5 +39,65 @@ public class TrainDao {
 		
 		return trains;
 	}
+	public boolean addTrain(Train train) {
+
+	    String query = """
+	            INSERT INTO trains
+	            (train_number, train_name, source, destination)
+	            VALUES (?, ?, ?, ?)
+	            """;
+
+	    try (
+	        Connection con = DBConnection.getConnection();
+	        PreparedStatement ps = con.prepareStatement(query);
+	    ) {
+
+	        ps.setString(1, train.getTrainNumber());
+	        ps.setString(2, train.getTrainName());
+	        ps.setString(3, train.getSource());
+	        ps.setString(4, train.getDestination());
+
+	        int rowsInserted = ps.executeUpdate();
+
+	        return rowsInserted > 0;
+
+	    } catch (Exception e) {
+
+	        e.printStackTrace();
+	        return false;
+	    }
+	}
+	public boolean updateTrain(Train train) {
+
+	    String query = """
+	            UPDATE trains
+	            SET train_number = ?,
+	                train_name = ?,
+	                source = ?,
+	                destination = ?
+	            WHERE train_id = ?
+	            """;
+
+	    try (
+	        Connection con = DBConnection.getConnection();
+	        PreparedStatement ps = con.prepareStatement(query);
+	    ) {
+
+	        ps.setString(1, train.getTrainNumber());
+	        ps.setString(2, train.getTrainName());
+	        ps.setString(3, train.getSource());
+	        ps.setString(4, train.getDestination());
+	        ps.setInt(5, train.getTrainId());
+
+	        int rowsUpdated = ps.executeUpdate();
+
+	        return rowsUpdated > 0;
+
+	    } catch (Exception e) {
+
+	        e.printStackTrace();
+	        return false;
+	    }
+	}
 
 }

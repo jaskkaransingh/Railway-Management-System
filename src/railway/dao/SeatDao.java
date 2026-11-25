@@ -161,4 +161,79 @@ public class SeatDao {
             return false;
         }
     }
+    
+    public boolean generateSeats(int scheduleId) {
+
+        String checkQuery =
+                "SELECT COUNT(*) FROM seats WHERE schedule_id = ?";
+
+        String insertQuery = """
+                INSERT INTO seats
+                (schedule_id, seat_number, seat_class, status)
+                VALUES (?, ?, ?, 'AVAILABLE')
+                """;
+
+        try (Connection con = DBConnection.getConnection()) {
+
+            con.setAutoCommit(false);
+
+            try (
+                PreparedStatement checkPs =
+                        con.prepareStatement(checkQuery);
+                PreparedStatement insertPs =
+                        con.prepareStatement(insertQuery)
+            ) {
+
+                // Prevent duplicate seat generation
+                checkPs.setInt(1, scheduleId);
+
+                try (ResultSet rs = checkPs.executeQuery()) {
+                    if (rs.next() && rs.getInt(1) > 0) {
+                        con.rollback();
+                        System.out.println(
+                                "Seats already exist for this schedule!"
+                        );
+                        return false;
+                    }
+                }
+
+                // Generate 4 AC seats
+                for (int i = 1; i <= 4; i++) {
+
+                    insertPs.setInt(1, scheduleId);
+                    insertPs.setString(2, "A" + i);
+                    insertPs.setString(3, "AC");
+                    insertPs.addBatch();
+                }
+
+                // Generate 4 Sleeper seats
+                for (int i = 1; i <= 4; i++) {
+
+                    insertPs.setInt(1, scheduleId);
+                    insertPs.setString(2, "B" + i);
+                    insertPs.setString(3, "SLEEPER");
+                    insertPs.addBatch();
+                }
+
+                insertPs.executeBatch();
+                con.commit();
+
+                System.out.println(
+                        "8 seats generated successfully for Schedule ID: "
+                        + scheduleId
+                );
+
+                return true;
+
+            } catch (SQLException e) {
+                con.rollback();
+                e.printStackTrace();
+                return false;
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
 }
